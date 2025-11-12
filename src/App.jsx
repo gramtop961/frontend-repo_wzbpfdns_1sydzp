@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Routes, Route, Link, useNavigate } from 'react-router-dom'
+import { Routes, Route, Link } from 'react-router-dom'
 
 // Prefer env, else fall back to live backend URL so the preview works out-of-the-box
 const LIVE_BACKEND = 'https://ta-01k9vw3mbmzqgg157a3kqcjs42-8000.wo-6kx0sgi9o1c27cuq336rj1r1x.w.modal.host'
@@ -16,7 +16,7 @@ function Topbar({ cartCount = 0 }) {
           <span className="hidden sm:inline text-amber-200">Handcrafted wood furniture</span>
         </Link>
         <div className="flex items-center gap-3">
-          <Link to="/shop" className="px-3 py-1 rounded hover:bg-amber-800/60">Shop</Link>
+          <Link to="/user" className="px-3 py-1 rounded hover:bg-amber-800/60">User</Link>
           <Link to="/seller" className="px-3 py-1 rounded hover:bg-amber-800/60">Seller</Link>
           <Link to="/admin" className="px-3 py-1 rounded hover:bg-amber-800/60">Admin</Link>
           <div className="relative px-3 py-1 rounded bg-amber-800/60">
@@ -88,7 +88,7 @@ function Home() {
             <h1 className="text-4xl sm:text-5xl font-extrabold drop-shadow">Beautiful Wooden Furniture, Crafted in India</h1>
             <p className="mt-4 max-w-2xl text-amber-100">Shop premium, handcrafted pieces at honest Indian prices. Delivered across India.</p>
             <div className="mt-8 flex gap-4">
-              <Link to="/shop" className="bg-amber-500 text-black font-semibold px-5 py-3 rounded">Start Shopping</Link>
+              <Link to="/user" className="bg-amber-500 text-black font-semibold px-5 py-3 rounded">User Dashboard</Link>
               <Link to="/seller" className="bg-white/20 hover:bg-white/30 text-white font-semibold px-5 py-3 rounded border border-white/30">I'm a Seller</Link>
               <Link to="/admin" className="bg-white/20 hover:bg-white/30 text-white font-semibold px-5 py-3 rounded border border-white/30">Admin</Link>
             </div>
@@ -100,7 +100,7 @@ function Home() {
         <div className="bg-white rounded-xl shadow p-6">
           <h3 className="text-xl font-bold text-amber-900 mb-2">For Users</h3>
           <p className="text-amber-800/80 mb-4">Explore curated collections and enjoy transparent pricing in INR.</p>
-          <Link to="/shop" className="text-amber-800 font-semibold">Go to Shop →</Link>
+          <Link to="/user" className="text-amber-800 font-semibold">Open User Dashboard →</Link>
         </div>
         <div className="bg-white rounded-xl shadow p-6">
           <h3 className="text-xl font-bold text-amber-900 mb-2">For Sellers</h3>
@@ -124,7 +124,7 @@ function Home() {
   )
 }
 
-function Shop() {
+function UserDashboard() {
   const [products, setProducts] = useState([])
   const [cart, setCart] = useState([])
   const [email, setEmail] = useState('customer@example.com')
@@ -166,25 +166,26 @@ function Shop() {
     <div className="min-h-screen bg-amber-50">
       <Topbar cartCount={cart.reduce((n,i)=>n+i.quantity,0)} />
       <main className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-        <section id="catalog">
-          <div className="flex items-end justify-between mb-4">
-            <h2 className="text-2xl font-bold text-amber-900">Catalog</h2>
-            <div className="flex items-center gap-3">
-              <input className="border rounded p-2" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email for receipt" />
-              <div className="text-lg font-bold text-amber-900">Total: {formatINR(total)}</div>
-              <button onClick={checkout} className="bg-amber-700 hover:bg-amber-800 text-white px-4 py-2 rounded">Checkout</button>
-            </div>
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-amber-900">User Dashboard</h2>
+            <p className="text-amber-800/80">Browse items, add to cart, and checkout.</p>
           </div>
-          {products.length === 0 ? (
-            <div className="text-amber-800/80">No products yet.</div>
-          ) : (
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {products.map(p => (
-                <ProductCard key={p.id || p._id} p={p} onAdd={addToCart} />
-              ))}
-            </div>
-          )}
-        </section>
+          <div className="flex items-center gap-3">
+            <input className="border rounded p-2" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email for receipt" />
+            <div className="text-lg font-bold text-amber-900">Total: {formatINR(total)}</div>
+            <button onClick={checkout} className="bg-amber-700 hover:bg-amber-800 text-white px-4 py-2 rounded">Buy Now</button>
+          </div>
+        </div>
+        {products.length === 0 ? (
+          <div className="text-amber-800/80">No products yet.</div>
+        ) : (
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {products.map(p => (
+              <ProductCard key={p.id || p._id} p={p} onAdd={addToCart} />
+            ))}
+          </div>
+        )}
       </main>
     </div>
   )
@@ -192,18 +193,93 @@ function Shop() {
 
 function Seller() {
   const [products, setProducts] = useState([])
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({ title: '', description: '', price: 0, image: '' })
+
   const refresh = async () => {
     const res = await fetch(`${API_BASE}/products`)
-    setProducts(await res.json())
+    const list = await res.json()
+    setProducts(list)
   }
   useEffect(() => { refresh() }, [])
+
+  const startEdit = (p) => {
+    setEditingId(p.id || p._id)
+    setEditForm({ title: p.title || '', description: p.description || '', price: p.price || 0, image: p.images?.[0] || '' })
+  }
+
+  const saveEdit = async () => {
+    const id = editingId
+    if (!id) return
+    const payload = { title: editForm.title, description: editForm.description, price: Number(editForm.price), images: editForm.image ? [editForm.image] : [] }
+    const res = await fetch(`${API_BASE}/products/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (res.ok) {
+      setEditingId(null)
+      setEditForm({ title: '', description: '', price: 0, image: '' })
+      refresh()
+    } else {
+      const t = await res.text().catch(()=> '')
+      alert(`Update failed: ${res.status} ${t}`)
+    }
+  }
+
+  const removeProduct = async (p) => {
+    const id = p.id || p._id
+    if (!confirm('Delete this product?')) return
+    const res = await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' })
+    if (res.ok) refresh()
+    else alert('Delete failed')
+  }
+
   return (
     <div className="min-h-screen bg-amber-50">
       <Topbar />
       <main className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-        <h2 className="text-2xl font-bold text-amber-900">Seller Panel</h2>
+        <h2 className="text-2xl font-bold text-amber-900">Seller Dashboard</h2>
         <ProductForm onCreated={refresh} />
-        <div className="text-sm text-amber-800/80">Products listed: {products.length}</div>
+
+        <div className="bg-white border rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-3">Your Products</h3>
+          {products.length === 0 ? (
+            <div className="text-amber-800/80">No products yet.</div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {products.map(p => {
+                const id = p.id || p._id
+                const isEditing = editingId === id
+                return (
+                  <div key={id} className="border rounded-lg p-3 bg-amber-50">
+                    {!isEditing ? (
+                      <>
+                        <div className="aspect-video bg-amber-100 rounded mb-2 overflow-hidden">
+                          {p.images?.[0] ? <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-amber-900/50">No Image</div>}
+                        </div>
+                        <div className="font-semibold text-amber-900">{p.title}</div>
+                        <div className="text-sm text-amber-800/80 line-clamp-2">{p.description}</div>
+                        <div className="mt-2 font-bold">{formatINR(p.price)}</div>
+                        <div className="mt-3 flex gap-2">
+                          <button onClick={() => startEdit(p)} className="px-3 py-1 rounded bg-amber-700 text-white hover:bg-amber-800">Edit</button>
+                          <button onClick={() => removeProduct(p)} className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700">Delete</button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <input className="border rounded p-2 w-full" value={editForm.title} onChange={e=>setEditForm({...editForm,title:e.target.value})} />
+                        <input className="border rounded p-2 w-full" type="number" value={editForm.price} onChange={e=>setEditForm({...editForm,price:e.target.value})} />
+                        <input className="border rounded p-2 w-full" placeholder="Image URL" value={editForm.image} onChange={e=>setEditForm({...editForm,image:e.target.value})} />
+                        <textarea className="border rounded p-2 w-full" rows={3} value={editForm.description} onChange={e=>setEditForm({...editForm,description:e.target.value})} />
+                        <div className="flex gap-2">
+                          <button onClick={saveEdit} className="px-3 py-1 rounded bg-amber-700 text-white hover:bg-amber-800">Save</button>
+                          <button onClick={() => setEditingId(null)} className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300">Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   )
@@ -290,7 +366,8 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/shop" element={<Shop />} />
+      <Route path="/user" element={<UserDashboard />} />
+      <Route path="/shop" element={<UserDashboard />} />
       <Route path="/seller" element={<Seller />} />
       <Route path="/admin" element={<Admin />} />
     </Routes>
