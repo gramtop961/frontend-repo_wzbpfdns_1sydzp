@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Routes, Route, Link, useNavigate } from 'react-router-dom'
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+// Prefer env, else fall back to live backend URL so the preview works out-of-the-box
+const LIVE_BACKEND = 'https://ta-01k9vw3mbmzqgg157a3kqcjs42-8000.wo-6kx0sgi9o1c27cuq336rj1r1x.w.modal.host'
+const API_BASE = import.meta.env.VITE_BACKEND_URL || LIVE_BACKEND || 'http://localhost:8000'
 
 const formatINR = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(n || 0))
 
@@ -57,6 +59,9 @@ function ProductForm({ onCreated }) {
     if (res.ok) {
       setForm({ title: '', description: '', price: 4999, currency: 'inr', images: [], stock: 10, featured: false })
       onCreated && onCreated()
+    } else {
+      const t = await res.text().catch(()=> '')
+      alert(`Failed to create product: ${res.status} ${t}`)
     }
   }
   return (
